@@ -1,0 +1,113 @@
+// SaveQuietly Phase 1 - Prisma Schema
+// PostgreSQL + Prisma Client
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") // Make sure .env has DATABASE_URL
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+}
+
+enum InstallmentStatus {
+  PENDING
+  PAID
+  MISSED
+}
+
+enum PaymentIntentStatus {
+  CREATED
+  OPENED
+  COMPLETED
+  EXPIRED
+}
+
+// ---------------------------------------------------------------------------
+// User - phone + OTP auth, no bank credentials stored
+// ---------------------------------------------------------------------------
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   @unique
+  createdAt DateTime @default(now())
+
+  goals          Goal[]
+  paymentIntents PaymentIntent[]
+
+  @@index([phone])
+}
+
+// ---------------------------------------------------------------------------
+// Goal - savings target with monthly installments
+// ---------------------------------------------------------------------------
+
+model Goal {
+  id            String     @id @default(uuid())
+  userId        String
+  title         String
+  targetAmount  Decimal    @db.Decimal(12, 2)
+  monthlyAmount Decimal    @db.Decimal(12, 2)
+  totalMonths   Int
+  startDate     DateTime   @db.Date
+  upiId         String // user's savings account UPI ID for deep links
+  status        GoalStatus @default(ACTIVE)
+  createdAt     DateTime   @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  installments Installment[]
+
+  @@index([userId])
+  @@index([userId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Installment - one per month per goal
+// ---------------------------------------------------------------------------
+
+model Installment {
+  id      String            @id @default(uuid())
+  goalId  String
+  dueDate DateTime          @db.Date
+  amount  Decimal           @db.Decimal(12, 2)
+  status  InstallmentStatus @default(PENDING)
+  paidAt  DateTime?         @db.Timestamptz(6)
+
+  goal           Goal            @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  paymentIntents PaymentIntent[]
+
+  @@index([goalId])
+  @@index([goalId, dueDate])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// PaymentIntent - UPI deep link generation and tracking
+// ---------------------------------------------------------------------------
+
+model PaymentIntent {
+  id            String              @id @default(uuid())
+  userId        String
+  installmentId String
+  amount        Decimal             @db.Decimal(12, 2)
+  upiLink       String
+  status        PaymentIntentStatus @default(CREATED)
+  createdAt     DateTime            @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  installment Installment @relation(fields: [installmentId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([installmentId])
+}
