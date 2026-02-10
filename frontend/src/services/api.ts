@@ -1,7 +1,7 @@
 /**
  * Real API Interface Layer
  *
- * This file talks to the real backend APIs hosted on localhost:3000
+ * This file talks to the real backend APIs.
  * UI components MUST only call functions from this file.
  */
 
@@ -19,7 +19,8 @@ import {
   PaymentIntent,
 } from '../types';
 
-const API_BASE_URL = 'http://192.168.1.6:3000';
+const API_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.6:3000';
+const API_PREFIX = '/api';
 
 // --------------------------------------------------
 // Auth token helper
@@ -28,7 +29,7 @@ const API_BASE_URL = 'http://192.168.1.6:3000';
 async function apiFetch<T>(path: string, options: RequestInit = {}) {
   const token = await AsyncStorage.getItem('auth_token');
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${API_PREFIX}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -56,14 +57,15 @@ export const sendOtp = (data: SendOtpDto) =>
 
 export const verifyOtp = async (data: VerifyOtpDto) => {
   const result = await apiFetch<{
-    auth_token: string;
+    access_token: string;
+    user: User;
   }>('/auth/verify-otp', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 
-  if (result.auth_token) {
-    localStorage.setItem('auth_token', result.auth_token);
+  if (result.access_token) {
+    await AsyncStorage.setItem('auth_token', result.access_token);
   }
 
   return result;

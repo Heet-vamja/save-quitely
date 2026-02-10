@@ -14,10 +14,33 @@ export class DashboardService {
     });
 
     let totalSaved = 0;
+    let totalTarget = 0;
+    let monthlyTarget = 0;
+    let savedThisMonth = 0;
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
     const goalsProgress = goals.map((g) => {
       const paid = g.installments.filter((i) => i.status === 'PAID');
       const paidSum = paid.reduce((s, i) => s + Number(i.amount), 0);
       totalSaved += paidSum;
+      totalTarget += Number(g.targetAmount);
+
+      // Add monthly amount for active goals
+      if (g.status === 'ACTIVE') {
+        monthlyTarget += Number(g.monthlyAmount);
+      }
+
+      // Calculate saved this month
+      const paidThisMonth = paid.filter((i) => {
+        if (!i.paidAt) return false;
+        const paidDate = new Date(i.paidAt);
+        return paidDate.getMonth() === currentMonth && paidDate.getFullYear() === currentYear;
+      });
+      savedThisMonth += paidThisMonth.reduce((s, i) => s + Number(i.amount), 0);
+
       const percent =
         g.totalMonths > 0
           ? Math.round((paid.length / g.totalMonths) * 100)
@@ -36,8 +59,15 @@ export class DashboardService {
 
     const activeGoalsCount = goals.filter((g) => g.status === 'ACTIVE').length;
 
+    // Calculate growth percentage (comparing to last month's total)
+    const growthPercentage = totalSaved > 0 ? Math.round((savedThisMonth / totalSaved) * 100) : 0;
+
     return {
       totalSaved,
+      totalTarget,
+      monthlyTarget,
+      savedThisMonth,
+      growthPercentage: Math.min(growthPercentage, 100),
       activeGoalsCount,
       totalGoalsCount: goals.length,
       goalsProgress,
@@ -94,6 +124,7 @@ export class DashboardService {
         startDate: goal.startDate,
         status: goal.status,
         currentAmount,
+        emoji: '🎯',
         progressPercentage:
           Number(goal.targetAmount) > 0
             ? Math.round((currentAmount / Number(goal.targetAmount)) * 100)

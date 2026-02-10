@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,53 +15,112 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/Button';
 import { CATEGORIES } from '../utils/mockData';
-import { format } from 'date-fns';
+import { format, differenceInDays, differenceInWeeks, differenceInMonths, addDays } from 'date-fns';
 import { createGoal } from '../src/services/api';
+import DateTimePicker from '@react-native-community/datetimepicker';
+
+
+type Frequency = 'daily' | 'weekly' | 'monthly';
+
+const FREQUENCY_OPTIONS: { id: Frequency; label: string; icon: string }[] = [
+  { id: 'daily', label: 'Daily', icon: 'today-outline' },
+  { id: 'weekly', label: 'Weekly', icon: 'calendar-outline' },
+  { id: 'monthly', label: 'Monthly', icon: 'calendar-number-outline' },
+];
 
 export default function CreateGoal() {
   const router = useRouter();
   const [goalName, setGoalName] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0]);
   const [targetAmount, setTargetAmount] = useState('');
-  const [targetDate, setTargetDate] = useState(new Date());
+  const [targetDate, setTargetDate] = useState(addDays(new Date(), 30)); // Default 30 days from now
+  const [frequency, setFrequency] = useState<Frequency>('monthly');
+  const [upiId, setUpiId] = useState('');
+  const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  
+  // Calculate installment amount based on frequency
+  const calculation = useMemo(() => {
+    if (!targetAmount || isNaN(Number(targetAmount))) {
+      return { installmentAmount: 0, totalInstallments: 0 };
+    }
+
+    const amount = Number(targetAmount);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const end = new Date(targetDate);
+    end.setHours(0, 0, 0, 0);
+
+    let totalInstallments = 0;
+    let installmentAmount = 0;
+
+    switch (frequency) {
+      case 'daily':
+        totalInstallments = Math.max(1, differenceInDays(end, now));
+        installmentAmount = amount / totalInstallments;
+        break;
+      case 'weekly':
+        totalInstallments = Math.max(1, differenceInWeeks(end, now));
+        installmentAmount = amount / totalInstallments;
+        break;
+      case 'monthly':
+        totalInstallments = Math.max(1, differenceInMonths(end, now));
+        installmentAmount = amount / totalInstallments;
+        break;
+    }
+
+    return {
+      installmentAmount: Math.round(installmentAmount * 100) / 100,
+      totalInstallments: Math.round(totalInstallments),
+    };
+  }, [targetAmount, targetDate, frequency]);
 
   const handleCreateGoal = async () => {
-  if (!goalName.trim() || !targetAmount) {
-    Alert.alert('Error', 'Please fill in all required fields');
-    return;
-  }
+    if (!goalName.trim() || !targetAmount) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
 
-  try {
-    //setLoading(true);
+    if (!upiId.trim()) {
+      Alert.alert('Error', 'Please enter your UPI ID');
+      return;
+    }
 
-    await createGoal({
-      title: goalName.trim(),
-      targetAmount: Number(targetAmount),
-      totalMonths: Number(12),
-      upiId: "",
-    });
+    if (calculation.totalInstallments < 1) {
+      Alert.alert('Error', 'Target date must be in the future');
+      return;
+    }
 
-    Alert.alert(
-      'Success!',
-      'Your goal has been created successfully',
-      [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]
-    );
-  } catch (error: any) {
-    console.error('Create goal failed:', error);
+    try {
+      setLoading(true);
 
-    Alert.alert(
-      'Something went wrong',
-      error?.message || 'Unable to create goal. Please try again.'
-    );
-  }
-};
+      await createGoal({
+        title: goalName.trim(),
+        targetAmount: Number(targetAmount),
+        totalMonths: calculation.totalInstallments,
+        upiId: upiId.trim(),
+      });
 
+      Alert.alert(
+        'Success!',
+        'Your goal has been created successfully',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error('Create goal failed:', error);
+      Alert.alert(
+        'Something went wrong',
+        error?.message || 'Unable to create goal. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -71,7 +130,7 @@ export default function CreateGoal() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} data-testid="back-button">
             <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
           </TouchableOpacity>
           <Text style={styles.title}>Create New Goal</Text>
@@ -93,6 +152,7 @@ export default function CreateGoal() {
               value={goalName}
               onChangeText={setGoalName}
               autoFocus
+              data-testid="goal-name-input"
             />
           </View>
 
@@ -112,6 +172,7 @@ export default function CreateGoal() {
                     selectedCategory.id === category.id && styles.categoryChipActive
                   ]}
                   onPress={() => setSelectedCategory(category)}
+                  data-testid={`category-${category.id}`}
                 >
                   <Text style={styles.categoryEmoji}>{category.emoji}</Text>
                   <Text style={[
@@ -137,7 +198,38 @@ export default function CreateGoal() {
                 value={targetAmount}
                 onChangeText={(text) => setTargetAmount(text.replace(/[^0-9]/g, ''))}
                 keyboardType="number-pad"
+                data-testid="target-amount-input"
               />
+            </View>
+          </View>
+
+          {/* Frequency Selection */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Saving Frequency</Text>
+            <View style={styles.frequencyContainer}>
+              {FREQUENCY_OPTIONS.map((option) => (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[
+                    styles.frequencyOption,
+                    frequency === option.id && styles.frequencyOptionActive
+                  ]}
+                  onPress={() => setFrequency(option.id)}
+                  data-testid={`frequency-${option.id}`}
+                >
+                  <Ionicons 
+                    name={option.icon as any} 
+                    size={20} 
+                    color={frequency === option.id ? '#5B5FD8' : '#666'} 
+                  />
+                  <Text style={[
+                    styles.frequencyText,
+                    frequency === option.id && styles.frequencyTextActive
+                  ]}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
@@ -147,6 +239,7 @@ export default function CreateGoal() {
             <TouchableOpacity 
               style={styles.dateButton}
               onPress={() => setShowDatePicker(true)}
+              data-testid="target-date-button"
             >
               <Ionicons name="calendar-outline" size={20} color="#5B5FD8" />
               <Text style={styles.dateText}>
@@ -154,6 +247,35 @@ export default function CreateGoal() {
               </Text>
               <Ionicons name="chevron-down" size={20} color="#999" />
             </TouchableOpacity>
+          </View>
+          {showDatePicker && (
+            <DateTimePicker
+              value={targetDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              minimumDate={new Date()}
+              onChange={(event, selectedDate) => {
+                setShowDatePicker(false);
+
+                if (event.type === 'set' && selectedDate) {
+                  setTargetDate(selectedDate);
+                }
+              }}
+            />
+          )}
+          {/* UPI ID */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Your UPI ID</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., yourname@paytm"
+              placeholderTextColor="#999"
+              value={upiId}
+              onChangeText={setUpiId}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              data-testid="upi-id-input"
+            />
           </View>
 
           {/* Summary Card */}
@@ -174,9 +296,33 @@ export default function CreateGoal() {
               </Text>
             </View>
             <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Frequency:</Text>
+              <Text style={styles.summaryValue}>
+                {FREQUENCY_OPTIONS.find(f => f.id === frequency)?.label}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Target Date:</Text>
               <Text style={styles.summaryValue}>
                 {format(targetDate, 'MMM dd, yyyy')}
+              </Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabelHighlight}>
+                {frequency === 'daily' ? 'Daily' : frequency === 'weekly' ? 'Weekly' : 'Monthly'} Saving:
+              </Text>
+              <Text style={styles.summaryValueHighlight}>
+                {calculation.installmentAmount > 0 
+                  ? `₹${calculation.installmentAmount.toLocaleString('en-IN')}`
+                  : '—'
+                }
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Total Installments:</Text>
+              <Text style={styles.summaryValue}>
+                {calculation.totalInstallments > 0 ? calculation.totalInstallments : '—'}
               </Text>
             </View>
           </View>
@@ -187,10 +333,11 @@ export default function CreateGoal() {
         {/* Create Button */}
         <View style={styles.footer}>
           <Button
-            title="Create Goal"
+            title={loading ? "Creating..." : "Create Goal"}
             onPress={handleCreateGoal}
             variant="primary"
-            disabled={!goalName.trim() || !targetAmount}
+            disabled={!goalName.trim() || !targetAmount || !upiId.trim() || loading}
+            data-testid="create-goal-button"
           />
         </View>
       </KeyboardAvoidingView>
@@ -304,6 +451,35 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1A1A1A',
   },
+  frequencyContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  frequencyOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 16,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+  },
+  frequencyOptionActive: {
+    borderColor: '#5B5FD8',
+    backgroundColor: 'rgba(91, 95, 216, 0.05)',
+  },
+  frequencyText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+  },
+  frequencyTextActive: {
+    color: '#5B5FD8',
+    fontWeight: '600',
+  },
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -347,6 +523,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#1A1A1A',
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: 'rgba(91, 95, 216, 0.2)',
+    marginVertical: 12,
+  },
+  summaryLabelHighlight: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#5B5FD8',
+  },
+  summaryValueHighlight: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#5B5FD8',
   },
   bottomPadding: {
     height: 16,

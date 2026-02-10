@@ -17,7 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { verifyOtp } from '../src/services/api'; // 👈 IMPORTANT
 
 export default function VerifyOTP() {
-  const [otp, setOtp] = useState(['', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
 
   const inputRefs = useRef<(TextInput | null)[]>([]);
@@ -39,7 +39,7 @@ export default function VerifyOTP() {
     newOtp[index] = value;
     setOtp(newOtp);
 
-    if (value && index < 3) {
+    if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
   };
@@ -53,8 +53,8 @@ export default function VerifyOTP() {
   const handleVerify = async () => {
     const otpString = otp.join('');
 
-    if (otpString.length !== 4) {
-      Alert.alert('Error', 'Please enter complete OTP');
+    if (otpString.length !== 6) {
+      Alert.alert('Error', 'Please enter complete 6-digit OTP');
       return;
     }
 
@@ -145,7 +145,7 @@ export default function VerifyOTP() {
                   title="Verify & Continue"
                   onPress={handleVerify}
                   loading={loading}
-                  disabled={otp.join('').length !== 4 || loading}
+                  disabled={otp.join('').length !== 6 || loading}
                   variant="primary"
                   style={styles.verifyButton}
                 />
@@ -241,11 +241,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   otpInput: {
-    flex: 1,
-    aspectRatio: 1,
+    width: 45,
+    height: 55,
     backgroundColor: '#F5F5F5',
-    borderRadius: 16,
-    fontSize: 24,
+    borderRadius: 12,
+    fontSize: 22,
     fontWeight: '600',
     textAlign: 'center',
     color: '#1A1A1A',

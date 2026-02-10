@@ -20,12 +20,12 @@ export class VerifyOtpDto {
   @ApiProperty({
     example: '123456',
     description: 'One-time password sent to the user phone number',
-    minLength: 4,
-    maxLength: 8,
+    minLength: 6,
+    maxLength: 6,
   })
   @IsString()
   @IsNotEmpty()
-  @Length(4, 6, { message: 'otp must be 6 digits' })
-  @Matches(/^\d+$/, { message: 'otp must contain only digits' })
+  @Length(6, 6, { message: 'otp must be exactly 6 digits' })
+  @Matches(/^\d{6}$/, { message: 'otp must contain exactly 6 digits' })
   otp: string;
 }

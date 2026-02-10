@@ -116,6 +116,7 @@ export class GoalsService {
       upiId: goal.upiId,
       status: goal.status,
       createdAt: goal.createdAt.toISOString(),
+      currentAmount: totalPaid,
       installments: goal.installments.map((i) => ({
         id: i.id,
         dueDate: i.dueDate.toISOString().slice(0, 10),

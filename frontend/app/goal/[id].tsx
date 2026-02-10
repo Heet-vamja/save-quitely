@@ -17,6 +17,7 @@ import { getGoalById, getInstallments, createUpiIntent, markInstallmentPaid } fr
 import { Goal, Installment } from '../../src/types';
 import { format, differenceInMonths } from 'date-fns';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import { Linking } from 'react-native';
 
 export default function GoalDetails() {
   const router = useRouter();
@@ -29,6 +30,39 @@ export default function GoalDetails() {
   useEffect(() => {
     if (id) loadGoalDetails();
   }, [id]);
+
+  const handleUpiPay = async () => {
+  if (!nextInstallment?.id) {
+    Alert.alert('Error', 'Invalid installment');
+    return;
+  }
+
+  try {
+    const res = await createUpiIntent({
+      installmentId: nextInstallment.id,
+    });
+
+    const upiLink = res?.upiLink;
+
+    if (!upiLink) {
+      Alert.alert('Error', 'Failed to generate UPI link');
+      return;
+    }
+
+    // 🚀 DO NOT use canOpenURL for UPI
+    await Linking.openURL(upiLink);
+
+    // ❌ DO NOT mark paid here
+    await markInstallmentPaid(nextInstallment?.id || '')
+
+  } catch (err: any) {
+    Alert.alert(
+      'Payment failed',
+      err?.message || 'Unable to initiate UPI payment'
+    );
+  }
+};
+
 
   const loadGoalDetails = async () => {
     try {
@@ -157,9 +191,14 @@ export default function GoalDetails() {
               <Text style={styles.nextAmt}>₹{nextInstallment.amount.toLocaleString('en-IN')}</Text>
             </View>
 
-            <TouchableOpacity style={styles.payBtn}>
+            <TouchableOpacity style={styles.payBtn} onPress={handleUpiPay}>
               <LinearGradient colors={['#5B5FD8', '#7B83EB']} style={styles.payGrad}>
-                <Ionicons name="paper-plane-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                <Ionicons
+                  name="paper-plane-outline"
+                  size={18}
+                  color="#fff"
+                  style={{ marginRight: 6 }}
+                />
                 <Text style={styles.payText}>Pay Now via UPI</Text>
               </LinearGradient>
             </TouchableOpacity>

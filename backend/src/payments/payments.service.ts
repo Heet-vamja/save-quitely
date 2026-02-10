@@ -72,7 +72,7 @@ export class PaymentsService {
     );
 
     const upiLink = `upi://pay?pa=${pa}&am=${am}&cu=${cu}&tn=${tn}`;
-
+    console.log('Generated UPI Link:', upiLink);
     const intent = await this.prisma.paymentIntent.create({
       data: {
         userId,

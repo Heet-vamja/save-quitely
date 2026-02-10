@@ -158,7 +158,7 @@ export default function Dashboard() {
             onPress={() => router.push('/(tabs)/goals')}
             data-testid="timeline-button"
           >
-            <Ionicons name="time-outline" size={18} color="#FFFFFF" />
+            <Ionicons name="time-outline" size={22} color="#FFFFFF" />
             <Text style={styles.timelineLabel}>Timeline</Text>
           </TouchableOpacity>
         </View>
@@ -183,25 +183,6 @@ export default function Dashboard() {
               ₹{(summary?.savedThisMonth || 0).toLocaleString('en-IN')}
             </Text>
           </LinearGradient>
-        </View>
-
-        {/* UPI banner */}
-        <View style={styles.upiCard}>
-          <View style={styles.upiIconWrap}>
-            <Ionicons name="shield-checkmark" size={18} color="#6C63FF" />
-          </View>
-          <View style={styles.upiTextWrap}>
-            <Text style={styles.upiTitle}>Link your UPI to auto-track</Text>
-            <Text style={styles.upiSub}>Savings. We never initiate payments.</Text>
-          </View>
-          <View style={styles.upiButtons}>
-            <TouchableOpacity style={styles.upiPrimary}>
-              <Text style={styles.upiPrimaryText}>Link UPI</Text>
-            </TouchableOpacity>
-            <TouchableOpacity>
-              <Text style={styles.upiSecondaryText}>Later</Text>
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* Active Goals heading – this is where scroll should start */}
@@ -339,7 +320,7 @@ const styles = StyleSheet.create({
 
   /* HEADER + SAVINGS */
   header: {
-    paddingBottom: 24,
+    paddingBottom: 18,
   },
   headerContent: {
     paddingHorizontal: 24,
@@ -456,14 +437,17 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
-    paddingVertical: 18,
+    paddingVertical: 8,
     alignItems: 'center',
+    height: 75,
+    justifyContent: 'center',
+    flexDirection: 'column',
     ...LIGHT_CARD_SHADOW,
   },
   newGoalCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 24,
+    height: 24,
+    borderRadius: 24,
     backgroundColor: '#5C5FEF',
     justifyContent: 'center',
     alignItems: 'center',
@@ -471,7 +455,7 @@ const styles = StyleSheet.create({
   },
   newGoalLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '800',
     color: '#5C5FEF',
   },
 
@@ -479,15 +463,17 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 20,
     marginLeft: 12,
-    backgroundColor: '#B3B7FF',
-    flexDirection: 'row',
+    gap: 10,
+    height: 75,
+    backgroundColor: '#5C5FEF',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 18,
   },
   timelineLabel: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '800',
     marginLeft: 6,
     fontSize: 14,
   },
